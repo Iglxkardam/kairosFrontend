@@ -16,6 +16,7 @@ export interface Idea {
   hashtags: string[];
   caption: string;
   source?: { label: string; url: string };
+  variants?: { hinglish: string[]; english: string[]; hindi: string[] };
 }
 
 export interface Insights {

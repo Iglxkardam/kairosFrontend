@@ -1,19 +1,20 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Check, Copy, Hash, LayoutList, Link2, Quote, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, Copy, Hash, LayoutList, Link2, Loader2, Pause, Play, Quote, Sparkles } from "lucide-react";
 import { FaInstagram, FaXTwitter, FaYoutube } from "react-icons/fa6";
 import type { Idea } from "@/lib/types";
 import { useCopy } from "@/lib/use-copy";
+import { useVoice } from "@/lib/use-voice";
 import { useThumb } from "./preview/use-thumb";
 import { cn } from "@/lib/cn";
 
 const META = {
-  reel: { label: "Instagram Reel", Icon: FaInstagram, scriptTitle: "Scene-by-scene script", captionTitle: "Caption", aspect: "aspect-9/16", accent: "from-wasabi/40 via-cassis to-cassis" },
+  reel: { label: "Instagram Reel", Icon: FaInstagram, scriptTitle: "30-second script", captionTitle: "Caption", aspect: "aspect-9/16", accent: "from-wasabi/40 via-cassis to-cassis" },
   youtube: { label: "YouTube Video", Icon: FaYoutube, scriptTitle: "Video script outline", captionTitle: "Description", aspect: "aspect-video", accent: "from-orange via-cassis to-cassis" },
-  thread: { label: "Twitter Thread", Icon: FaXTwitter, scriptTitle: "Thread — tweet by tweet", captionTitle: "Summary", aspect: "aspect-video", accent: "from-cassis to-cassis" },
+  thread: { label: "X Post", Icon: FaXTwitter, scriptTitle: "The post", captionTitle: "Summary", aspect: "aspect-video", accent: "from-cassis to-cassis" },
 } as const;
 
 function ThumbPane({ idea, aspect, accent }: { idea: Idea; aspect: string; accent: string }) {
@@ -50,15 +51,37 @@ function CopyBtn({ k, text, label, copy, copied }: { k: string; text: string; la
   );
 }
 
+// reads the reel script aloud in the creator's cloned voice. hides itself if voice isn't configured.
+function VoiceBtn({ id, text }: { id: string; text: string }) {
+  const { state, toggle } = useVoice(id, text);
+  if (state === "off") return null;
+  return (
+    <button
+      onClick={toggle}
+      disabled={state === "loading"}
+      className="inline-flex items-center gap-1.5 rounded-full bg-wasabi px-3 py-1 text-xs font-semibold text-cassis hover:opacity-90 disabled:opacity-70"
+    >
+      {state === "loading" ? <Loader2 size={13} className="animate-spin" /> : state === "playing" ? <Pause size={13} /> : <Play size={13} />}
+      {state === "loading" ? "loading" : state === "playing" ? "pause" : "play in Sujal's voice"}
+    </button>
+  );
+}
+
 export function IdeaDetail({ idea, runId }: { idea: Idea; runId: string }) {
   const router = useRouter();
   const { copied, copy } = useCopy();
   const m = META[idea.format];
   const isThread = idea.format === "thread";
+  const isReel = idea.format === "reel";
   // older saved runs may predate these fields — default so the page never crashes
-  const script = idea.script ?? [];
   const hashtags = idea.hashtags ?? [];
   const caption = idea.caption ?? "";
+
+  // reels carry hinglish/english/hindi; toggle picks the display, voice always speaks hindi
+  const variants = isReel ? idea.variants : undefined;
+  const [lang, setLang] = useState<"hinglish" | "english">("hinglish");
+  const script = (variants ? (lang === "hinglish" ? variants.hinglish : variants.english) : idea.script) ?? [];
+  const voiceText = (variants?.hindi?.length ? variants.hindi : script).join(" ");
 
   const everything = [
     `HOOK: ${idea.hook}`,
@@ -95,7 +118,7 @@ export function IdeaDetail({ idea, runId }: { idea: Idea; runId: string }) {
             <div className="rounded-3xl border border-line bg-card/60 p-6">
               <FaXTwitter size={26} />
               <p className="mt-4 font-display text-lg font-bold leading-snug">{idea.hook}</p>
-              <p className="mt-2 text-sm text-muted">{script.length} tweets · @thesujalshow</p>
+              <p className="mt-2 text-sm text-muted">single post · @thesujalshow</p>
             </div>
           ) : (
             <ThumbPane idea={idea} aspect={m.aspect} accent={m.accent} />
@@ -120,21 +143,47 @@ export function IdeaDetail({ idea, runId }: { idea: Idea; runId: string }) {
           <Section
             icon={<LayoutList size={15} />}
             title={m.scriptTitle}
-            action={<CopyBtn k="script" text={script.join("\n")} label="copy" copy={copy} copied={copied} />}
+            action={
+              <div className="flex items-center gap-2">
+                {variants && (
+                  <div className="flex rounded-full border border-line p-0.5 text-xs font-medium">
+                    {(["hinglish", "english"] as const).map((l) => (
+                      <button
+                        key={l}
+                        onClick={() => setLang(l)}
+                        className={cn("rounded-full px-2.5 py-0.5 capitalize", lang === l ? "bg-wasabi text-cassis" : "text-muted hover:text-fg")}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {isReel && voiceText.trim() && <VoiceBtn id={idea.id} text={voiceText} />}
+                <CopyBtn k="script" text={script.join(isThread ? "\n" : " ")} label="copy" copy={copy} copied={copied} />
+              </div>
+            }
           >
-            {script.length ? (
+            {!script.length ? (
+              <p className="text-sm text-muted">no script for this one.</p>
+            ) : isThread ? (
+              <div className="space-y-2.5">
+                {script.map((s, i) => (
+                  <p key={i} className={cn("text-sm leading-relaxed", i === script.length - 1 ? "font-semibold text-fg" : "text-fg/90")}>
+                    {s}
+                  </p>
+                ))}
+              </div>
+            ) : (
               <ol className="space-y-2.5">
                 {script.map((s, i) => (
                   <li key={i} className="flex gap-3">
                     <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-wasabi/20 font-display text-xs font-bold text-fg">
-                      {isThread ? `${i + 1}/` : i + 1}
+                      {i + 1}
                     </span>
                     <p className="text-sm leading-relaxed text-fg/90">{s}</p>
                   </li>
                 ))}
               </ol>
-            ) : (
-              <p className="text-sm text-muted">no script beats for this one.</p>
             )}
           </Section>
 

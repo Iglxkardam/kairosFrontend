@@ -10,8 +10,11 @@ function seed(s: string) {
 
 export function XThread({ idea }: { idea: Idea }) {
   const n = seed(idea.id);
-  const tweets = [idea.hook, ...idea.script].slice(0, 5);
   const stat = (k: number) => `${1 + ((n >> k) % 9)}.${(n >> (k + 3)) % 9}K`;
+  // his signature single post: headline, then data lines, last line is a short conviction closer
+  const lines = idea.script.slice(0, 7);
+  const closer = lines.length > 2 ? lines.at(-1) : undefined;
+  const points = closer ? lines.slice(0, -1) : lines;
 
   return (
     <article className="rounded-2xl border border-line bg-card/70 p-4">
@@ -28,13 +31,13 @@ export function XThread({ idea }: { idea: Idea }) {
         <FaXTwitter className="ml-auto text-fg" size={16} />
       </div>
 
-      <ol className="mt-3 space-y-2.5">
-        {tweets.map((t, i) => (
-          <li key={i} className="text-sm leading-snug">
-            {i === 0 ? <span className="font-medium">{t}</span> : <span className="text-muted">{i}/ {t}</span>}
-          </li>
+      <p className="mt-3 text-sm font-semibold leading-snug">{idea.hook}</p>
+      <div className="mt-2.5 space-y-2">
+        {points.map((t, i) => (
+          <p key={i} className="text-sm leading-snug text-fg/85">{t}</p>
         ))}
-      </ol>
+      </div>
+      {closer && <p className="mt-3 text-sm font-semibold">{closer}</p>}
 
       <div className="mt-4 flex items-center justify-between text-muted">
         <span className="flex items-center gap-1.5 text-xs"><MessageCircle size={14} /> {stat(0)}</span>
